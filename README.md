@@ -1,14 +1,14 @@
-# luabench 0.1.0
+# luabench 0.1.1
 
-This ASCII plotter draws a benchmark as a graph.
+**This ASCII plotter draws a benchmark as a graph.**
 
 It shows how the benchmark behaves (y time axis) while a table increases in size (the x axis) that it uses as feed. 
 
 It can also compare two Lua benchmarks. The size of the plot area of the graph can be adapted to your needs, the ranges shown are automatically adjusted to sensible values. The drawing x=1 is suppressed by default as it often skews the scale of the shown area for no gain. The time is shown relative to elements in the table. 
 
-Status: mostly runs. Beware of possible dumb mistakes in the time measurement. Please double check.
+**Status:** mostly runs. Beware of possible dumb mistakes in the time measurement. Please double check.
 
-Have fund
+Have fun
 
 ## Sample
 
@@ -56,14 +56,14 @@ The test program for this may look like this:
 
 ## Result
 
-This is the result of the sample files 
+This is the result of these sample files, run one after the other:
 
 	sample.lua
 	sample2.lua
 	sample3.lua
 	sample4.lua
 
-Simply call 'make' with arguments to see them being produced.
+Simply call 'make' with no arguments to see them being produced.
 
 **lua sample.lua**
 	Lua 5.1 official
@@ -104,7 +104,7 @@ Simply call 'make' with arguments to see them being produced.
 		   ... |..................................................
 	 elements:	^1		 ^200	  ^400	   ^600		^800	 
 	 x=1: 374 not shown
-	-=xXx=- Luabench Plotter 0.1.0 - http://eonblast.com/luabench
+	-=xXx=- Luabench Plotter 0.1.1 - http://eonblast.com/luabench
 
 Note that this curve doesn't even show total time but time per element. So what you are seeing is only one part of a geometric growth. [And this is a sample comment.]
 
@@ -140,7 +140,7 @@ Note that this curve doesn't even show total time but time per element. So what 
 		   ... |..................................................
 	 elements:	^1		 ^200	  ^400	   ^600		^800	 
 	 x=1: 591.4 not shown
-	-=xXx=- Luabench Plotter 0.1.0 - http://eonblast.com/luabench
+	-=xXx=- Luabench Plotter 0.1.1 - http://eonblast.com/luabench
 
 Using concat() is the recommended way to do this. 
 
@@ -184,7 +184,7 @@ Using concat() is the recommended way to do this.
 		   ... |..................................................
 	 elements:	^1		 ^200	  ^400	   ^600		^800	 
 	x=1 +: 373.7; x: 592.3
-	-=xXx=- Luabench Plotter 0.1.0 - http://eonblast.com/luabench
+	-=xXx=- Luabench Plotter 0.1.1 - http://eonblast.com/luabench
 
 And this shows both results in one graph. Note that this curves show time per table element.
 
@@ -221,34 +221,8 @@ And this shows both results in one graph. Note that this curves show time per ta
 		   ... |..................................................
 	 elements:	^1		 ^20000	  ^40000   ^60000	^80000	 
 	 x=1: 589.8 not shown
-	-=xXx=- Luabench Plotter 0.1.0 - http://eonblast.com/luabench
+	-=xXx=- Luabench Plotter 0.1.1 - http://eonblast.com/luabench
 
 But concat() has its problems, too, when we get into deep waters. [xmax is now set to 100,000. Before, we looked at x in 1 - 1,000. Now at 1 - 100,000].
-
-**cat sample.lua**
-	 -----------------------------------------------------------------------
-	 -- luabench plotter sample
-	 -----------------------------------------------------------------------
-	 
-	 package.path="./?.lua"
-	 luabench=require("luabench")
-	 
-	 luabench.plot(
-	 
-			 -- title
-			 "-=xXx=- Sample: Wrong Concatenation ",
-	 
-			 -- preparation (prompt and code)
-			 "t[i] = 'abc'",
-			 function(x) t={}; for i=1,x do t[i]='abc' end; return t; end,
-	 
-			 -- bench line #1: (prompt and code)
-			 "s=''; for i=1,#t do s=s..t[i] end",
-			 function(t) local s=""; for i=1,#t do s=s..t[i] end return s end
-	 
-			 )
-	 print()
-	 print("Not that this curve doesn't even show total time but time per " ..
-		   "element. So what you are seeing is only one part of a geometric " ..
-		   "growth. [And this is a sample comment.]")
+ 
 

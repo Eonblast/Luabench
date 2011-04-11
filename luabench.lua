@@ -2,17 +2,19 @@
 --- Package     : Luabench - ASCII plotter for Lua performance over i       ---
 --- File        : luabench.lua                                              ---
 --- Description : Main and only module file                                 ---
---- Version     : 0.1.0 / alpha                                             ---
+--- Version     : 0.2.0 / alpha                                             ---
 --- Copyright   : 2011 Henning Diedrich, Eonblast Corporation               ---
 --- Author      : H. Diedrich <hd2010@eonblast.com>                         ---
 --- License     : see file LICENSE                                          ---
---- Created     : 07 Apr 2011                                               ---
---- Changed     : 08 Apr 2011                                               ---
+--- Created     : 08 Apr 2011                                               ---
+--- Changed     : 10 Apr 2011                                               ---
 -------------------------------------------------------------------------------
 ---                                                                         ---
 ---  ASCII plotted graph showing performance relative to element count.     ---
 ---                                                                         ---
 ---  Use: luabench=require("luabench")                                      ---
+---       luabench.plot("caption", "text", prepfunc, "legend", benchfunc)   ---
+---                                                                         ---
 ---  See: sample.lua                                                        ---
 ---                                                                         ---
 -------------------------------------------------------------------------------
@@ -32,30 +34,46 @@ SYMBOL1 = '+'
 SYMBOL2 = 'x'
 SYMBOL_OVERLAP = '*'
 BACKGROUND = ' '              
+X_AXIS = '_'              
 
-MAX_HEIGHT   = 30             -- max height of graph area in terminal lines
-WIDTH        = 50             -- width of graph are in terminal columns
-MAX_CYCLES   = 10000          -- max number of times the test functions run 
-MAX_ELEMENTS = 1000           -- upper limit of number of elements (x)
-BESTOF       = 3              -- number of repeat runs, fastest is used
-VERBOSITY    = 1              -- debugging: 0 = quiet, 1, 2 = verbose
-SHOW_ONE     = false          -- setting false often increases resolution
-CUTOFF       = true           -- don't show the area from y0 to ymin
+MAX_HEIGHT    = 30             -- max height of graph area in terminal lines
+WIDTH         = 50             -- width of graph are in terminal columns
+MAX_CYCLES    = 10000          -- max number of times the test functions run 
+MAX_ELEMENTS  = 1000           -- upper limit of number of elements (x)
+BESTOF        = 3              -- number of repeat runs, fastest is used
+VERBOSITY     = 1              -- debugging: 0 = quiet, 1, 2 = verbose
+SHOW_ONE      = false          -- setting false often increases resolution
+CUTOFF        = true           -- don't show the area from y0 to ymin
+ALWAYS_CUTOFF = false          -- cutoff even if < 25% space is saved by it
 
-MARGIN = "    "
-PLOTTER_BANNER = "-=xXx=- Luabench Plotter 0.1.0 - http://eonblast.com/luabench"
+MARGIN = "\t"
+PLOTTER_BANNER = 
+    "-=xXx=- Luabench Plotter 0.2.0 - http://www.eonblast.com/luabench"
 
--- max y is calculated automatically. 
--- min elements is fix 1
-
------------------------------------------------------------------------
--- output formatting and math (except graph)
------------------------------------------------------------------------
+-- ymax is calculated automatically. 
+-- y0 is fix 1 but its drawing can be controlled by SHOW_ONE.
 
 sep =   "---------------------------------------" ..
         "-------------------------------------o-"
 subsep= "......................................." ..
         "......................................."
+
+-----------------------------------------------------------------------
+-- main function
+-----------------------------------------------------------------------
+
+function plot(title, prepP, prepare, prompt1, action1, prompt2, action2)
+
+    if prompt2 == nil or action2 == nil then
+        plot1(title, prepP, prepare, prompt1, action1)
+    else
+        plot2(title, prepP, prepare, prompt1, action1, prompt2, action2)
+    end
+end
+
+-----------------------------------------------------------------------
+-- output formatting and math (except graph)
+-----------------------------------------------------------------------
 
 -- percent value with no decimals >= 2, but one decimal < 2. ----------
 function prcstr(part, base)
@@ -115,7 +133,7 @@ end
 
 -- decimal point ------------------------------------------------------
 -- by Richard Warburton http://lua-users.org/wiki/FormattingNumbers ---
-function comma_value(n)
+function number_format(n)
 	local left,num,right = string.match(n,'^([^%d]*%d)(%d*)(.-)$')
 	return left..(num:reverse():gsub('(%d%d%d)','%1,'):reverse())..right
 end
@@ -194,7 +212,7 @@ function plot_graph2(title, p1, p2, name1, NAME1)
     vmin2,vmax2 = tlimits(p2)
     
     if vmax1 == nil and vmax2 == nil then
-        print("Can't plot ", vmin1, vmax2, vmin2, vmin2)
+        print("Can't plot ", vmin1, vmax1, vmin2, vax2)
         return
     end
 
@@ -207,8 +225,10 @@ function plot_graph2(title, p1, p2, name1, NAME1)
     vmax = math.max(vmax1,vmax2)
     bar  = 10 ^ (math.ceil(math.log10(vmax / 100))) 
     ymax = math.max(10,math.ceil( vmax / bar ) * bar)
-    ymin = math.max( 0,math.ceil( vmin / bar - 1) * bar)
-    if not CUTOFF then ymin = 0 end
+    ymin = math.max( 0,math.floor( vmin / bar - 1) * bar)
+    if CUTOFF and (ALWAYS_CUTOFF or ymin / ymax > 0.25) then do_cutoff = true 
+    else do_cutoff = false end
+    if not do_cutoff then ymin = 0 end
     yspan = ymax - ymin
     
     step = math.ceil(yspan / MAX_HEIGHT / 10) * 10
@@ -251,7 +271,7 @@ function plot_graph2(title, p1, p2, name1, NAME1)
     end
 
     -- cut off, dotted x axis
-    if CUTOFF and ylast > 0 then
+    if do_cutoff and ylast > 0 then
         margin()
         io.write(string.format("%10s |", "..."))
         for x = 1,imax,1 do io.write(".") end
@@ -415,7 +435,7 @@ function plotrow1(y, ylast, p1, name1)
                 if u1 then io.write(SYMBOL1)
                 elseif y == 0 then
                     if y1==nil then io.write(':')
-                    else io.write('-')
+                    else io.write(X_AXIS)
                     end
                 else 
                     io.write(BACKGROUND)
@@ -461,15 +481,12 @@ function plotrow2(y, ylast, p1, p2, name1, name2)
                 end
                 
                 -- plot
-                if u1 == true and u2 == true then io.write(SYMBOL_OVERLAP)
+                if y == 0 and (y1==0 or y2==0) then io.write(':')
+                elseif u1 == true and u2 == true then io.write(SYMBOL_OVERLAP)
                 elseif u1 then io.write(SYMBOL1)
                 elseif u2 then io.write(SYMBOL2)
-                elseif y == 0 then
-                    if y1==nil or y2==nil then io.write(':')
-                    else io.write('-')
-                    end
-                else 
-                    io.write(BACKGROUND)
+                elseif y == 0 then io.write(X_AXIS) 
+                else io.write(BACKGROUND)
                 end
             end
         end
@@ -506,7 +523,7 @@ function randstr(max)
 end
 
 function someval()
-    y = math.random(2,10)
+    y = math.random(2,11)
     if y == 1 then return nil end
     if y == 2 then return false end 
     if y == 3 then return true end 
@@ -517,8 +534,20 @@ function someval()
     if y == 8 then return randstr(5) end 
     if y == 9 then return randstr(15) end 
     if y == 10 then return randstr(100) end 
+    if y == 11 then return randstr(1000) end 
 end
 
+function someval_no_bools()
+    y = math.random(4,10)
+    if y == 4 then return math.random(1,10000000) end 
+    if y == 5 then return math.random(-10000000,-10000000) end 
+    if y == 6 then return math.random(-1000000000,-1000000000) / 1000000 end 
+    if y == 7 then return abc[math.random(1,26)] end 
+    if y == 8 then return randstr(5) end 
+    if y == 9 then return randstr(15) end 
+    if y == 10 then return randstr(100) end 
+    if y == 11 then return randstr(1000) end 
+end
 
 function stringify(t) table.val_to_str( t ) end
 
@@ -634,11 +663,11 @@ function plot2(title, prepP, prepare, prompt1, action1, prompt2, action2)
     margin()
     print(sep)
     margin()
-    printf("%d - %d elements in %-25s\n", 1, MAX_ELEMENTS, prepP)
+    printf("x=[%d..%s] elements in %-25s\n", 1, number_format(MAX_ELEMENTS), prepP)
     margin()
-    print("+: " .. prompt1)
+    print(SYMBOL1..": " .. prompt1)
     margin()
-    print("x: " .. prompt2)
+    print(SYMBOL2..": " .. prompt2)
     margin()
     print(sep)
 
@@ -689,11 +718,15 @@ function plot2(title, prepP, prepare, prompt1, action1, prompt2, action2)
     
 end
 
-function plot(title, prepP, prepare, prompt1, action1, prompt2, action2)
 
-    if prompt2 == nil or action2 == nil then
-        plot1(title, prepP, prepare, prompt1, action1)
-    else
-        plot2(title, prepP, prepare, prompt1, action1, prompt2, action2)
-    end
-end
+-- History
+-- 0.2
+-- added test feed function someval_no_bools()
+-- added 1K string to someval()
+-- added suppressing of CUTOFF when < 25% space gain
+-- added ALWAYS_CUTOFF
+-- added definable x axis character
+-- added colon on x axis as signifyer for actual 0s 
+-- fixed one too high lower cutoff row
+
+-- TODO: single line plot function lags behind plot2()

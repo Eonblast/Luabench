@@ -273,6 +273,15 @@ But concat() has its problems, too, when we get into deep waters. (xmax is now s
 
 ## History
 
+#### 0.3
+* fixed wait dots margin
+* added dynamic cycle adjustment from get go
+* added display of elements and cycles to wait dots
+* refactored use of math.min/max on nil
+* fixed adjustment and deletion of wait dots
+* fixed Lua/LuaJIT version display
+* added VERSION_TAG for subject name & version
+
 #### 0.2
 * added test feed function someval_no_bools()
 * added 1K string to someval()

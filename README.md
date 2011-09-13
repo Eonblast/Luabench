@@ -161,6 +161,7 @@ Simply call 'make' with no arguments to see them being produced.
     Using concat() is the recommended way to do this. 
 
 **lua sample-3.lua**
+
 	Lua 5.1 official - Luabench 0.4.1
 	----------------------------------------------------------------------------o-
 	x=[1..1,000] elements in t[i] = 'abc'             
@@ -239,6 +240,7 @@ Simply call 'make' with no arguments to see them being produced.
     But concat() gets slower, too, when strings get longer. xmax is now set to 100,000. Before, we looked at x in 1 - 1,000. Now at 1 - 100,000 [And all this is an example comment].
 
 **lua sample-4a.lua**
+
 	Lua 5.1 official - Luabench 0.4.1
 	----------------------------------------------------------------------------o-
 	x=[1..1,000,000] elements in a table t[i] = 'abc' .. i        
@@ -496,15 +498,15 @@ Simply call 'make' with no arguments to see them being produced.
 	-=xXx=- Luabench 0.4.1 - http://www.eonblast.com/luabench
 
 
+ArithBench (PUC)
+================
+
 **lua sample-6.lua**
 
 Sample 6 - plotset function - running Lua 5.1
 
 This is a comparison between arithmetical operations: multiplication and division.
-	
 
-ArithBench (PUC)
-================
 
 	Lua 5.1 official - Sample 6 / PUC
 	----------------------------------------------------------------------------o-
@@ -663,16 +665,14 @@ ArithBench (PUC)
 	-=xXx=- Luabench 0.4.1 - http://www.eonblast.com/luabench
 
 
-|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-lua sample-7.lua
-Sample 7 - plotset function - running Lua 5.1
-
-This shows the speed of multiplication.
-	
-
-
 ArithBench (PUC)
 ================
+
+**lua sample-7.lua**
+
+## Sample 7 - plotset function - running Lua 5.1
+
+This shows the speed of multiplication.
 
 	Lua 5.1 official - Sample 7 / PUC
 	----------------------------------------------------------------------------o-
@@ -847,14 +847,14 @@ ArithBench (PUC)
         print("Note that this curve doesn't even show total time but time per " ..
               "element. So what you are seeing is only one part of a geometric " ..
               "growth. [And also note that this is but a sample comment.]")
-        |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-        Und das war: samples 1 to 7 in a row plus the source of sample.lua
-        There is nothing to make. Take a look at sample.lua and start running your own samples.
 
 
-## History
+**Und das war: samples 1 to 7 in a row plus the source of sample.lua**
 
-# 0.4.1
+
+# History
+
+## 0.4.1
 * major speed up by allowing for recycling target tables
 * added FIX_CYCLES to allow for fixed number of cycles for all x
 * added plotset() to render with multiple Xmax
@@ -862,7 +862,7 @@ ArithBench (PUC)
 * fixed single curve prepare call
 * added explain text
 
-# 0.4
+## 0.4
 * added exception catch pcall() around measure function
 * added lower limit of string sizes for randstr()
 * added speak like and key like random string pattern sets
@@ -870,7 +870,7 @@ ArithBench (PUC)
 * attempt at higher precision for small count of elements 
 * fixed x sequence from 1,3,5.. v 1,11,21.. to 1,2,4.. v 1,10,20..
 
-# 0.3
+## 0.3
 * fixed wait dots margin
 * added dynamic cycle adjustment from get go
 * added display of elements and cycles to wait dots
@@ -879,7 +879,7 @@ ArithBench (PUC)
 * fixed Lua/LuaJIT version display
 * added VERSION_TAG for subject name & version
 
-# 0.2
+## 0.2
 * added test feed function someval_no_bools()
 * added 1K string to someval()
 * added suppressing of CUTOFF when < 25% space gain

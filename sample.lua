@@ -20,6 +20,6 @@ luabench.plot(
 
 		)
 print()
-print("Not that this curve doesn't even show total time but time per " ..
+print("Note that this curve doesn't even show total time but time per " ..
       "element. So what you are seeing is only one part of a geometric " ..
-      "growth. [And this is a sample comment.]")
+      "growth. [And also note that this is but a sample comment.]")

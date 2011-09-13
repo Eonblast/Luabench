@@ -5,6 +5,8 @@
 package.path="./?.lua"
 luabench=require("luabench")
 
+luabench.SHOW_ONE = false   -- setting false often increases resolution
+
 luabench.plot(
 
         -- title
@@ -15,14 +17,14 @@ luabench.plot(
         function(x) t={}; for i=1,x do t[i]='abc' end; return t; end,
 
         -- bench line #1: (prompt and code)
-		"WRONG: s=''; for i=1,#t do s=s..t[i] end",
+		"WRONG WAY TO DO IT: s=''; for i=1,#t do s=s..t[i] end",
         function(t) local s=""; for i=1,#t do s=s..t[i] end return s end,
 
         -- bench line #2: (prompt and code)
-		"RIGHT: return table.concat(t) end",
+		"RIGHT WAY TO DO IT: return table.concat(t) end",
         function(t) return table.concat(t) end
 		)
 
 print()
-print("And this shows both results in one graph. Note that this curves " ..
+print("This shows two results in one graph. Note that these curves " ..
       "show time per table element.")

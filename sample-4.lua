@@ -22,4 +22,4 @@ luabench.plot(
 		)
 
 print()
-print("But concat() gets slower, too, when strings get longer. xmax is now set to 100,000. Before, we looked at x in 1 - 1,000. Now at 1 - 100,000 [<- this all is an unrelated test comment].")
+print("But concat() gets slower, too, when strings get longer. xmax is now set to 100,000. Before, we looked at x in 1 - 1,000. Now at 1 - 100,000 [And all this is an example comment].")

@@ -2,14 +2,13 @@
 --- Package     : Luabench - ASCII plotter for Lua performance over i       ---
 --- File        : luabench.lua                                              ---
 --- Description : Main and only module file                                 ---
---- Version     : 0.4.1/ alpha                                              ---
+--- Version     : 0.5.0/ alpha                                              ---
 --- Requirement : Lua 5.1 or JIT 2 but may run anything lower than that     ---
 --- Copyright   : 2011 Henning Diedrich, Eonblast Corporation               ---
 --- Author      : H. Diedrich <hd2010@eonblast.com>                         ---
 --- License     : MIT see end of file                                       ---
 --- Created     : 08 Apr 2011                                               ---
---- Changed     : 14 Apr 2011  0.4.0                                        ---
---- Changed     : 12 Sep 2011                                               ---
+--- Changed     : 15 Sep 2011                                               ---
 -------------------------------------------------------------------------------
 ---                                                                         ---
 ---  ASCII plotted graph showing performance relative to element count.     ---
@@ -29,7 +28,7 @@ module("luabench", package.seeall)
 
 -- change these values in your main script, see samples
 
-VERSION_TAG    = "Luabench 0.4.1" -- version number to appear at the top
+VERSION_TAG    = "Luabench 0.5.0" -- version number to appear at the top
 NAME1          = ""               -- name to + interval bracket right of plot
 NAME2          = ""               -- name to x interval bracket right of plot
 SYMBOL1        = '+'
@@ -42,15 +41,19 @@ MAX_HEIGHT    = 30             -- max height of graph area in terminal lines
 WIDTH         = 50             -- width of graph are in terminal columns
 MAX_CYCLES    = 100000         -- max number of times the test functions run 
 MAX_ELEMENTS  = 1000           -- upper limit of number of elements (x)
-SLICE         = 0.05           -- minimal time slice to use for cycles
+SLICE         = 0.2            -- minimal time slice for cycles. safe: 0.2
 BESTOF        = 3              -- number of repeat runs, fastest is used
 VERBOSITY     = 1              -- debugging: 0 = quiet, 1, 2 = verbose
 SHOW_ONE      = false          -- setting false often increases resolution
-SHOW_TWO      = false          -- setting false sometimes increases resolution
+SHOW_TWO      = true           -- setting false sometimes increases resolution
 CUTOFF        = true           -- don't show the area from y0 to ymin
 ALWAYS_CUTOFF = false          -- cutoff even if < 25% space is saved by it
-FIX_CYCLES    = false           -- for all x take cycles of x0
+FIX_CYCLES    = false          -- for all x take cycles of x0
 RECYCLE_TABLE = true           -- allow for tables to be re-used for next x
+
+SAVE          = true           -- store measured data
+SAVE_PATH     = "./save/"      -- save and read serialized table data here
+ALLOW_LOAD    = false          -- allow load 1st curve instead of re-calculate
 
 PLOTTER_BANNER = 
     "-=xXx=- "..VERSION_TAG.." - http://www.eonblast.com/luabench"
@@ -61,7 +64,7 @@ MARGIN = "\t"
 -- y0 is fix 1 but its drawing can be controlled by SHOW_ONE and SHOW_TWO.
 
 sep =   "---------------------------------------" ..
-        "-------------------------------------o-"
+        "-------------------------------------:-"
 subsep= "......................................." ..
         "......................................."
 
@@ -84,31 +87,92 @@ EXPLAIN = [[
 ]]
 
 -----------------------------------------------------------------------
--- main function
+-- main functions
 -----------------------------------------------------------------------
 
-function plot(title, prepP, prepare, prompt1, action1, prompt2, action2)
+--- Plot a graph
+-- with either 1 or 2 curves, one of them can be loaded from disk
+function plot(title, prepP, prepare, prompt1, action1, prompt2, action2, reload)
 
     if prompt2 == nil or action2 == nil then
         plot1(title, prepP, prepare, prompt1, action1)
+        -- switches to loading when allowed and possible (= data file exists)
+    elseif reload == "load" then
+        local search = prompt2
+        local replace = action2
+        plot2_load1(title, prepP, prepare, prompt1, action1, search, replace)
+        -- switches to double loading when allowed and possible
     else
         plot2(title, prepP, prepare, prompt1, action1, prompt2, action2)
     end
 end
 
+--- Plot a set of graphs from same source algorithm but diverse Xmax 
+-- the graphs can have either 1 or 2 curves, one of them can be loaded from disk
+
+function plotset(title, prompt, prepfunc, spans, prompt1, func1, prompt2, func2, mode)
+
+    -- print headline
+    print()
+    head = title .. " - " .. version()
+    print(head)
+    for i=1,#head do io.write("=") end
+    print()
+    print()
+
+    -- loop over different element counts
+    if spans == nil then 
+        spans = {100,1000,10000,100000,1000000,10000000} 
+    end
+
+    for i = 1, #spans do
+
+        -- sub header (span)
+        -- local subhead = string.format("[%d..%d]", 1, spans[i])
+        local subhead = number_format(spans[i])
+        print(subhead)
+        for i=1,#subhead do io.write("-") end
+        print()
+        print()
+    
+        luabench.MAX_ELEMENTS= spans[i] -- upper limit of number of elements (x)
+        luabench.MAX_CYCLES  = 10000000  -- max number of times the test functions run 
+	
+        luabench.plot(title,
+
+               -- preparation
+               prompt,
+               prepfunc,
+               prompt1,
+               func1,
+               prompt2,
+               func2,
+               mode
+               )
+               
+       print()
+       print()
+    end
+end
+
+
 -----------------------------------------------------------------------
 -- output formatting and math (except graph)
 -----------------------------------------------------------------------
 
-function plothead()
+function version()
+    local v
+    if(jit == nil) then v = _VERSION 
+    else v = jit.version end
+    if(_PATCH) then v = v .. " " .. _PATCH
+    else v = v .. " official" end
+    return v
+end
+
+
+function plothead(title, version)
     margin()
-    if(jit ~= nil) then io.write(jit.version)
-    elseif(_PATCH) then io.write(_PATCH) 
-    else io.write(_VERSION .. ' official') 
-    end
-    if(VERSION_TAG ~= nil) then
-        io.write(" - " .. VERSION_TAG)
-    end
+    io.write(title .. " - " .. version)
     print()
 end
 
@@ -155,9 +219,9 @@ function waitdots(items)
     io.write('.');
     if mincycles ~= nil then
         if mincycles == maxcycles then
-            info = " x=" .. number_format(items) .. ": " .. number_format(mincycles) .. " cycles"
+            info = " x=" .. number_format(items) .. ": " .. number_format(mincycles) .. " cycle" .. plurals(mincycles)
         else
-            info = " x=" .. number_format(items) .. ": " .. number_format(mincycles) .. " & " .. number_format(maxcycles) .. " cycles"
+            info = " x=" .. number_format(items) .. ": " .. number_format(mincycles) .. " & " .. number_format(maxcycles) .. " cycle" .. plurals(maxcycles)
         end
         waitdots_info_len = info:len()
         io.write(info)
@@ -217,12 +281,29 @@ function str(s)
     if s == nil then return "" end
     return s
 end
--- decimal point ------------------------------------------------------
--- by Richard Warburton http://lua-users.org/wiki/FormattingNumbers ---
+
+-- decimal points and M notation
+-- credit Richard Warburton http://lua-users.org/wiki/FormattingNumbers
 function number_format(n)
 	local left,num,right = string.match(n,'^([^%d]*%d)(%d*)(.-)$')
-	return left..(num:reverse():gsub('(%d%d%d)','%1,'):reverse())..right
+	local r = left..(num:reverse():gsub('(%d%d%d)','%1,'):reverse())..right
+	r = r:gsub(",000,000$", "M")
+	r = r:gsub(",(%d)00,000$", ".%1M")
+	r = r:gsub(",000$", "k")
+	r = r:gsub(",(%d)00$", ".%1k")
+	return r
 end
+
+function plurals(count)
+    if count == 1 then return "" end
+    return "s"
+end
+
+function str(s)
+    if s == nil then return "[nil]" end
+    if type(s) == "table" then return "[table]" end
+    return "" .. s
+end    
 
 -----------------------------------------------------------------------
 -- mini json stringify for output
@@ -269,37 +350,52 @@ end
 -- ASCII plotter
 -----------------------------------------------------------------------
 
+function tcount(t)
+    count = 0
+    for _ in pairs(t) do 
+        count = count + 1
+    end
+    return count
+end
+
+function timax(t)
+    imax = nil
+    for i,_ in pairs(t) do 
+        imax = max(i,imax)
+    end
+    return imax
+end
+
 function tlimits(t)
-    if #t == 0 then return nil,nil end
     vmin = nil 
     vmax = nil
-    for _,v in next, t do 
+    for _,v in pairs(t) do 
         vmin = min(vmin,v)
         vmax = max(vmax,v)
     end
     return vmin,vmax
 end
 
-function plot_graph2(title, p1, p2, name1, name2)
+function plot_graph2(title, p1, p2, u, name1, name2)
 
     -- take #1 out -- often gains much resolution for the graph
-    if not SHOW_ONE then
-        suppressed = "x=1 "..SYMBOL1..": " .. p1[1] .. "; "..SYMBOL2..": " .. p2[1]
+        if not SHOW_ONE then
+        suppressed = "x=" .. u[1] .. " "..SYMBOL1..": " .. p1[1] .. "; "..SYMBOL2..": " .. p2[1]
         p1[1] = nil
         p2[1] = nil
     end
     
     if not SHOW_TWO then
         suppressed = suppressed .. "\n        " ..
-        "x=#2 "..SYMBOL1..": " .. p1[2] .. "; "..SYMBOL2..": " .. p2[2]
+        "x=" .. u[2] .. " "..SYMBOL1..": " .. p1[2] .. "; "..SYMBOL2..": " .. p2[2]
         p1[2] = nil
         p2[2] = nil
     end
     
-    imax = math.max(#p1,#p2)
+    imax = math.max(timax(p1),timax(p2))
     vmin1,vmax1 = tlimits(p1)
     vmin2,vmax2 = tlimits(p2)
-    
+
     if vmax1 == nil and vmax2 == nil then
         print("Can't plot ", vmin1, vmax1, vmin2, vax2)
         return
@@ -340,7 +436,7 @@ function plot_graph2(title, p1, p2, name1, name2)
 
     -- start output    
     margin()
-    print("nsec/element  " .. title)
+    print("nsec/element  " .. title .. " - " .. version())
     
     -- print(#p1, #p2, vmin, vmax, MAX_HEIGHT, step)
     
@@ -391,21 +487,21 @@ function plot_graph2(title, p1, p2, name1, name2)
 end
 
 
-function plot_graph1(title, p1, name1)
+function plot_graph1(title, p1, u, name1)
 
     -- take #1 out -- often gains much resolution for the graph
     if not SHOW_ONE then
-        suppressed = "x=1 "..SYMBOL1..": " .. p1[1]
+        suppressed = "x="..u[1].." "..SYMBOL1..": " .. p1[1]
         p1[1] = nil
     end
     
     if not SHOW_TWO then
         suppressed = suppressed .. 
-        "; x= "..SYMBOL1..": " .. p1[2]
+        "; x="..u[2].." "..SYMBOL1..": " .. p1[2]
         p1[2] = nil
     end
     
-    imax = #p1
+    imax = timax(p1)
     vmin1,vmax1 = tlimits(p1)
     
     if vmax1 == nil then
@@ -448,7 +544,7 @@ function plot_graph1(title, p1, name1)
 
     -- start output    
     margin()
-    print("nsec/element  " .. title)
+    print("nsec/element  " .. title .. " - " .. version())
     
     -- print(#p1, #p2, vmin, vmax, MAX_HEIGHT, step)
     
@@ -486,7 +582,7 @@ function plot_graph1(title, p1, name1)
     io.write(string.format("%10.10s  ", "elements:"))
 
     for x = 1,imax,10 do
-        leg = "^" .. xl[x]
+        leg = "^" .. number_format(xl[x])
         io.write(leg)
         for li = 1,10-leg:len()-1 do io.write(' ') end
     end
@@ -549,7 +645,7 @@ function plotrow2(y, ylast, p1, p2, name1, name2)
         for x = 1,imax,1 do
             local y1 = p1[x]
             local y2 = p2[x]
-
+            
             -- x=1 taken out
             if not SHOW_ONE and x == 1 then
                 io.write(':')
@@ -594,6 +690,84 @@ function plotrow2(y, ylast, p1, p2, name1, name2)
         end
 
         print()
+end
+
+-----------------------------------------------------------------------
+-- serialization
+-----------------------------------------------------------------------
+-- this, among other things, allows for comparison of two different VMs
+
+-- stores a plain integer key, number value table
+function store(t, u, title, prompt, name, path)
+    local s = ""
+    s = s .. "-- " .. VERSION_TAG .. " serialized result\n"
+    s = s .. serialize(t, u, title, prompt)
+    local f = assert(io.open(path .. name, "w"))
+    f:write(s)
+    f:close()
+end
+
+-- reads back any valid Lua table
+function read(filename, path)
+    local f = io.open(path .. filename, "r")
+    if not f then print("Failed to open \"" .. path .. filename .. "\"") os.exit() end
+    local s = f:read("*all")
+    local sffv, data, units, title, prompt, vm, date = unserialize(s)
+    if data == nil then error("failed to read back " .. path .. filename) end
+    if sffv ~= 1 then error("version error of read data: " .. str(sffv)) end
+    f:close()
+    margin()
+    print("read " .. path .. filename)
+    
+    return data, units, title, prompt, vm, date
+end    
+
+-- serializes a plain integer key, number value table
+function serialize(t, u, title, prompt)
+    local s = ""
+    s = s .. "-- " .. title .. " - " .. version() .. " - " .. os.date() .. "\n"
+    s = s .. "-- " .. prompt .. "\n"
+    s = s .. "sffv   = 1\n"
+    s = s .. "title  =\"" .. title .. "\"\n"
+    s = s .. "prompt =\"" .. prompt .. "\"\n"
+    s = s .. "vm     =\"" .. version() .. "\"\n"
+    s = s .. "date   =\"" .. os.date() .. "\"\n"
+    s = s .. "data   = {\n"
+    for i,v in ipairs(t) do s = s .. "\t[" .. i .. "] = " .. v ..",\n" end
+    s = s .. "}\n"
+    s = s .. "units  = {\n"
+    for i,v in ipairs(u) do s = s .. "\t[" .. i .. "] = " .. v ..",\n" end
+    s = s .. "}\n"
+    s = s .. "return sffv, data, units, title, prompt, vm, date\n"
+    return s
+end
+
+-- unserializes any valid Lua table
+function unserialize(s)
+    local name, vm, date, data, units
+    if s:find("os") ~= nil then error("unsafe serialized string") end
+    func = assert(loadstring(s, "unserialize data"))
+    local ok, err = pcall(func);
+    if not ok then error(err) end
+    return func() -- data, units, name, vm, date
+end    
+
+function make_filename(parts)
+    local s = ""
+    for k,v in pairs(parts) do
+        local str = "" .. v
+        s = s .. str:gsub("^[a-z]", "_") .. " - "
+    end
+    return s:sub(1,-4)
+end
+
+function file_exists(name)
+    local f=io.open(name,"r")
+    if f~=nil then 
+        io.close(f) 
+        return true 
+    end
+    return false
 end
 
 -----------------------------------------------------------------------
@@ -659,7 +833,7 @@ end
 function stringify(t) table.val_to_str( t ) end
 
 function jingle()
-    local jingles = { "breath!", ":-)", ":-o", "+1", "... and the sun?", "take a break now, you deserve it", "have fun!", "not too bad _", "there's more ...", "good.", "do something good now", "birthdays?", "you have mail", "can we talk?", "what movie is today?", "this is the best day of my live, too", "music!?", "l.o.v.e", "wow!", "nice", "...!?", "books are cool", "Call me Ishmael ...", "rake to the see", "42", "43", "er?", "hello?", "hello world?", "Like that tool? Let me know: hd@2010@eonblast.com", "follow the wite rabbit ...", "an apple a day keeps the doctor away. seriously now" }
+    local jingles = { "breath!", ":-)", ":-o", "+1", "... and the sun?", "take a break now, you deserve it", "have fun!", "not too bad _", "there's more ...", "good.", "do something good now", "birthdays?", "you have mail", "can we talk?", "what movie is today?", "this is the best day of my live, too", "music!?", "l.o.v.e", "wow!", "nice", "...!?", "books are cool", "Call me Ishmael ...", "rake to the see", "42", "43", "er?", "hello?", "hello world?", "Like that tool? Let me know: hd2010@eonblast.com", "follow the wite rabbit ...", "an apple a day keeps the doctor away. seriously now" }
     if math.random(1,1000) == 1 then
         margin()
         print(jingles[math.random(1,#jingles)])
@@ -794,12 +968,21 @@ local function measure(items, actionP, action)
 end
 
 -----------------------------------------------------------------------
--- main function
+-- plotter functions
 -----------------------------------------------------------------------
+
+-- this section got awefully tangled after a first jabb at refactoring
+-- failed. The main obstacle are the actually the plotrow subtleties.
 
 function plot1(title, prepP, prep, prompt1, action1)
 
-    plothead()
+    filename = make_filename{title,version(), "1-"..MAX_ELEMENTS}
+    if ALLOW_LOAD and file_exists(SAVE_PATH .. filename) then
+        plot1_load1(title, prepP, prep, prompt1, action1)
+        return
+    end
+
+    plothead(title, version())
 
     margin()
     print(sep)
@@ -812,7 +995,8 @@ function plot1(title, prepP, prep, prompt1, action1)
 
     collectgarbage()
 
-    local t2 = {}
+    local t1 = {}
+    local x1 = {}
     local lastitems
     local lastt
 
@@ -834,25 +1018,72 @@ function plot1(title, prepP, prep, prompt1, action1)
         margin(2)
         printfv(2, subsep .. "\n")
 
-        ok, secnd, r2 = pcall(measure, items, prompt1, action1)
+        ok, secnd, r1 = pcall(measure, items, prompt1, action1)
         if ok == false then
             secnd = nil
-            r2 = "[error]"
+            r1 = "[error]"
         end
         
         if secnd == nil then secnd = 0 end
-        t2[#t2+1] = secnd        
-        printfv(2, "     %.20s.. \n", r2)
+        t1[#t1+1] = secnd
+        x1[#x1+1] = items
+        printfv(2, "     %.20s.. \n", r1)
 
-        margin(2)
-        printfv(2, "     %.20s.. \n", r3)
-       
         anyprev = true
     end
     
     if(VERBOSITY < 2) then delete_waitdots() end
     
-    plot_graph1(title, t2, NAME1)
+    if(SAVE) then
+        store(t1, x1, title, prompt1, make_filename{title,version(), "1-"..MAX_ELEMENTS}, SAVE_PATH)
+    end
+    
+    plot_graph1(title, t1, x1, NAME1)
+
+    margin()
+    print(PLOTTER_BANNER)
+    pcall(jingle)
+
+end
+
+function plot1_load1(title, prepP, prep, prompt1, action1)
+
+    filename = make_filename{title,version(), "1-"..MAX_ELEMENTS}
+    if not file_exists(SAVE_PATH .. filename) then
+        plot1(title, prepP, prep, prompt1, action1)
+        return
+    end
+
+    local t1, x1, title, prompt1, vm, date = read(filename, SAVE_PATH)
+    if t1 == nil then error("failed to re-read from " .. filename) end
+
+    plothead(title, version())
+
+    margin()
+    print(sep)
+    margin()
+    printf("x=[%d..%s] elements in a table %-25s\n", 1, number_format(MAX_ELEMENTS), prepP)
+    margin()
+    print("y=time/x needed for " .. prompt1)
+    margin()
+    print(sep)
+
+    collectgarbage()
+
+    for items  = 0,MAX_ELEMENTS,math.ceil(MAX_ELEMENTS / WIDTH) do
+        if items == 0 then items = 1 end
+    -- clone of this loop head at (*) !
+        
+        if anyprev then margin(2); printfv(2, subsep .. "\n") end
+        margin(2)
+        printfv(2, "%d elements in %-25s\n", items, prepP)
+        margin(2)
+        printfv(2, subsep .. "\n")
+
+        printfv(2, "     %.20s.. \n", r1)
+    end
+    
+    plot_graph1(title, t1, x1, NAME1)
 
     margin()
     print(PLOTTER_BANNER)
@@ -862,7 +1093,7 @@ end
 
 function plot2(title, prepP, prep, prompt1, action1, prompt2, action2)
 
-    plothead()
+    plothead(title, version())
 
     margin()
     print(sep)
@@ -877,8 +1108,9 @@ function plot2(title, prepP, prep, prompt1, action1, prompt2, action2)
 
     collectgarbage()
 
+    local t1 = {}
     local t2 = {}
-    local t3 = {}
+    local u = {}
     local lastitems
     local lastt
     
@@ -901,43 +1133,49 @@ function plot2(title, prepP, prep, prompt1, action1, prompt2, action2)
         printfv(2, subsep .. "\n")
 
         activedot(SYMBOL1)
-        ok, secnd, r2 = pcall(measure, items, prompt1, action1)
+        ok, secnd, r1 = pcall(measure, items, prompt1, action1)
         if ok == false then
             print(secnd)
             secnd = nil
-            r2 = "[error]"
+            r1 = "[error]"
         end
         if secnd == nil then secnd = 0 end
-        t2[#t2+1] = secnd        
-        printfv(2, "     %.20s.. \n", r2)
+        t1[#t1+1] = secnd        
+        u[#u+1] = items
+        printfv(2, "     %.20s.. \n", r1)
         delete_activedot()
 
         activedot(SYMBOL2)
-        ok, third, r3 = pcall(measure, items, prompt2, action2)
+        ok, third, r1 = pcall(measure, items, prompt2, action2)
         if ok == false then
             print(third)
             third = nil
-            r3 = "[error]"
+            r1 = "[error]"
         end
         if third == nil then third = 0 end
-        t3[#t3+1] = third
+        t2[#t2+1] = third
         delete_activedot()
         
         if(secnd and third) then prc = prcstr(third, secnd)
             margin(2)
-            printfv(2, "%3g%% %.20s.. \n", prc, r3)
+            printfv(2, "%3g%% %.20s.. \n", prc, r2)
         else 
             prc = "-"
             margin(2)
-            printfv(2, "     %.20s.. \n", r3)
+            printfv(2, "     %.20s.. \n", r2)
         end
        
         anyprev = true
     end
     
     if(VERBOSITY < 2) then delete_waitdots() end
+
+    if(SAVE) then
+        store(t1, u, title, prompt1, make_filename{title,version(), "1-"..MAX_ELEMENTS}, SAVE_PATH)
+        store(t2, u, title, prompt2, make_filename{title,version(), "1-"..MAX_ELEMENTS, prompt2}, SAVE_PATH)
+    end
     
-    plot_graph2(title, t2, t3, NAME1, NAME2)
+    plot_graph2(title, t1, t2, u, NAME1, NAME2)
 
     margin()
     print(PLOTTER_BANNER)
@@ -945,43 +1183,192 @@ function plot2(title, prepP, prep, prompt1, action1, prompt2, action2)
     
 end
 
-function plotset(title, prompt, prepfunc, spans, prompt1, func1, prompt2, func2)
+function plot2_load1(title, prepP, prep, prompt1, action1, search, replace)
 
-    -- print headline
-    print()
-    print(title)
-    for i=1,#title do io.write("=") end
-    print()
-    print()
-
-    -- loop over different element counts
-    if spans == nil then 
-        spans = {100,1000,10000,100000,1000000,10000000} 
+    local savename1 = make_filename{title,version(),"1-"..MAX_ELEMENTS}
+    local savename2 = savename1:gsub(search, replace) -- to be loaded
+    if savename1 == savename2 then 
+        error("File name for data to be loaded same as for data to be calculated: " .. savename1 .. "(Tried to replace " .. search .. " -> " .. replace .. ")") 
     end
 
-    for i = 1, #spans do
+    -- switch over to double loading, when a) allowed and b) possible
+    if ALLOW_LOAD and file_exists(SAVE_PATH .. savename1) then
+        plot2_load2(title, prepP, prep, prompt1, action1, search, replace)
+        return
+    end
+
+    local t2, x2, title2, prompt2, vm2, date2 = read(savename2, SAVE_PATH)
+    if t2 == nil then error("failed to re-read from " .. savename2) end
+
+    local common = title:gsub(search, "")
+    prompt1 = prompt1 .. " " .. search
+    prompt2 = prompt2 .. " " .. replace
+
+    plothead(common, search .. " vs " .. replace)
+
+    margin()
+    print(sep)
+    margin()
+    printf("x=[%d..%s] elements in %-25s\n", 1, number_format(MAX_ELEMENTS), prepP)
+    margin()
+    print(SYMBOL1..": " .. prompt1)
+    margin()
+    print(SYMBOL2..": " .. prompt2)
+    margin()
+    print(sep)
+
+    collectgarbage()
+
+    local t1 = {}
+    local lastitems
+    local lastt
     
-        luabench.MAX_ELEMENTS= spans[i] -- upper limit of number of elements (x)
-        luabench.MAX_CYCLES  = 10000000  -- max number of times the test functions run 
-	
-        luabench.plot(title,
+    for items  = 0,MAX_ELEMENTS,math.ceil(MAX_ELEMENTS / WIDTH) do
+        if items == 0 then items = 1 end
+    -- clone of this loop head at (*) !
 
-               -- preparation
-               prompt,
-               prepfunc,
-               prompt1,
-               func1,
-               prompt2,
-               func2
-               )
-               
-       print()
-       print()
+        if(VERBOSITY < 2) then waitdots(items) end
+        
+        t = prepare(items, prepP, prep, lastitems, lastt)
+
+        -- safe for next iteration, this shortens table creation time
+        lastitems = items
+        lastt = t
+
+        if anyprev then margin(2); printfv(2, subsep .. "\n") end
+        margin(2)
+        printfv(2, "%d elements in %-25s\n", items, prepP)
+        margin(2)
+        printfv(2, subsep .. "\n")
+
+        activedot(SYMBOL1)
+        ok, secnd, r1 = pcall(measure, items, prompt1, action1)
+        if ok == false then
+            print(secnd)
+            secnd = nil
+            r1 = "[error]"
+        end
+        if secnd == nil then secnd = 0 end
+        t1[#t1+1] = secnd        
+        printfv(2, "     %.20s.. \n", r1)
+        delete_activedot()
+
+        -- 2 is already there. But check units.
+        if x2[#t1] ~= items then
+            error("Phase error with reloaded data: at i=" .. str(#t1) .. " items count is " .. items .. ", loaded data had seen " .. str(x2[#t1]))
+        end            
+        
+        if(secnd and third) then prc = prcstr(third, secnd)
+            margin(2)
+            printfv(2, "%3g%% %.20s.. \n", prc, r2)
+        else 
+            prc = "-"
+            margin(2)
+            printfv(2, "     %.20s.. \n", r2)
+        end
+       
+        anyprev = true
     end
+    
+    if(VERBOSITY < 2) then delete_waitdots() end
+    
+    if(SAVE) then
+        store(t1, x2, title, prompt1, make_filename{title,version(), "1-"..MAX_ELEMENTS}, SAVE_PATH) -- sic x2
+    end
+
+    plot_graph2(title, t1, t2, x2, NAME1, NAME2)
+
+    margin()
+    print(PLOTTER_BANNER)
+    pcall(jingle)
+    
+end
+
+function plot2_load2(title, prepP, prep, prompt1, action1, search, replace)
+
+    local savename1 = make_filename{title,version(),"1-"..MAX_ELEMENTS}
+    local savename2 = savename1:gsub(search, replace) -- to be loaded
+    if savename1 == savename2 then 
+        error("File name for data to be loaded same as for data to be calculated: " .. savename1 .. "(Tried to replace " .. search .. " -> " .. replace .. ")") 
+    end
+
+    local t1, x1, title1, prompt1, vm1, date1 = read(savename1, SAVE_PATH)
+    if t1 == nil then error("failed to re-read from " .. savename1) end
+    local t2, x2, title2, prompt2, vm2, date2 = read(savename2, SAVE_PATH)
+    if t2 == nil then error("failed to re-read from " .. savename2) end
+
+    local common = title:gsub(search, "")
+    plothead(common, search .. " vs " .. replace)
+
+    margin()
+    print(sep)
+    margin()
+    printf("x=[%d..%s] elements in %-25s\n", 1, number_format(MAX_ELEMENTS), prepP)
+    margin()
+    print(SYMBOL1..": " .. prompt1)
+    margin()
+    print(SYMBOL2..": " .. prompt2)
+    margin()
+    print(sep)
+
+    collectgarbage()
+
+    local i = 0
+    for items = 0,MAX_ELEMENTS,math.ceil(MAX_ELEMENTS / WIDTH) do
+        if items == 0 then items = 1 end
+    -- clone of this loop head at (*) !
+
+        i = i + 1 
+
+        if anyprev then margin(2); printfv(2, subsep .. "\n") end
+        margin(2)
+        printfv(2, "%d elements in %-25s\n", items, prepP)
+        margin(2)
+        printfv(2, subsep .. "\n")
+
+        -- But check units.
+        if x1[i] ~= items then
+            error("Phase error with reloaded data: at i=" .. i .. " items count is " .. items .. ", loaded data had seen " .. str(x1[i]))
+        end            
+        if x2[i] ~= items then
+            error("Phase error with reloaded data: at i=" .. i .. " items count is " .. items .. ", loaded data had seen " .. str(x2[i]))
+        end            
+        
+        if(secnd and third) then prc = prcstr(third, secnd)
+            margin(2)
+            printfv(2, "%3g%% %.20s.. \n", prc, r2)
+        else 
+            prc = "-"
+            margin(2)
+            printfv(2, "     %.20s.. \n", r2)
+        end
+       
+        anyprev = true
+    end
+    
+    plot_graph2(title, t1, t2, x2, NAME1, NAME2)
+
+    margin()
+    print(PLOTTER_BANNER)
+    pcall(jingle)
+    
 end
 
 
+-----------------------------------------------------------------------
 -- History
+-----------------------------------------------------------------------
+--
+-- 0.5
+-- serialization and reading back of results to test across VMs
+-- fixed missing x value for display as number when suppressed in graph
+-- minor refactoring of table names in plot functions
+--
+-- 0.4.2
+-- replace M for ,000,000, m.m. k, to avoid right shift in x axis legend
+-- fixing missing number formatting to single graph legend
+-- adding title contents to first line, erasing Luabench version
+-- extended version information in headlines
 --
 -- 0.4.1
 -- major speed up by allowing for recycling target tables
@@ -1019,3 +1406,34 @@ end
 
 -- TODO: single line plot function lags behind plot2()
 
+-----------------------------------------------------------------------
+-- Luabench 0.5.0 License
+-----------------------------------------------------------------------
+-- 
+-- Copyright (c) 2011 Eonblast http://www.eonblast.com/luabench
+--                    Henning Diedrich <hd2010@eonblast.com>
+-- 
+-- Permission is  hereby  granted,  free of charge,  to any person
+-- obtaining  a copy of this software and associated documentation
+-- files  (the  "Software"),  to  deal  in  the  Software  without 
+-- restriction,  including  without limitation  the rights to use,
+-- copy, modify,  merge,  publish, distribute,  sublicense, and/or 
+-- sell  copies of the  Software,  and to permit  persons  to whom
+-- the  Software  is furnished to do so,  subject to the following 
+-- conditions:
+-- 
+-- The above copyright notice and this permission notice shall be
+-- included in all copies or substantial portions of the Software.
+-- If you publish graphs, please consider leaving the link to the
+-- Luabench home page in, if this is no nuisance for your design.
+-- 
+-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+-- EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+-- OF  MERCHANTABILITY,  FITNESS  FOR  A  PARTICULAR  PURPOSE  AND
+-- NONINFRINGEMENT. IN  NO  EVENT  SHALL  THE AUTHORS OR COPYRIGHT
+-- HOLDERS  BE  LIABLE FOR  ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+-- WHETHER IN AN ACTION OF CONTRACT,  TORT  OR OTHERWISE,  ARISING
+-- FROM,  OUT OF OR IN CONNECTION WITH THE SOFTWARE  OR THE USE OR
+-- OTHER DEALINGS IN THE SOFTWARE.
+--
+-----------------------------------------------------------------------

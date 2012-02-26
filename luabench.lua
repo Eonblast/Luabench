@@ -37,12 +37,12 @@ SYMBOL_OVERLAP = '*'
 BACKGROUND     = ' '              
 X_AXIS         = '_'              
 
-MAX_HEIGHT    = 30             -- max height of graph area in terminal lines
+MAX_HEIGHT    = 30             -- max height of graph area in terminal rows
 WIDTH         = 50             -- width of graph are in terminal columns
 MAX_CYCLES    = 100000         -- max number of times the test functions run* 
 MAX_ELEMENTS  = 1000           -- upper limit of number of elements (x)
-SLICE         = 0.2            -- minimal time slice for cycles. safe: 0.2
-BEST_OF       = 3              -- number of repeat runs, fastest is used
+SLICE         = 0.2            -- minimal time slice for cycles. Safe: 0.2.
+BEST_OF       = 3              -- number of repeat runs, fastest is used. Use 3.
 VERBOSITY     = 1              -- debugging: 0 = quiet, 1, 2 = verbose
 SHOW_ONE      = false          -- setting false often increases resolution
 SHOW_TWO      = true           -- setting false sometimes increases resolution
@@ -51,7 +51,7 @@ ALWAYS_CUTOFF = false          -- cutoff even if < 25% space is saved by it
 FIX_CYCLES    = false          -- for all x take cycles of x0
 RECYCLE_TABLE = true           -- allow for tables to be re-used for next x
 
-SAVE          = true           -- store measured data
+SAVE          = false          -- store measured data
 SAVE_PATH     = "./save/"      -- save and read serialized table data here
 ALLOW_LOAD    = false          -- allow load 1st curve instead of re-calculate
 
@@ -93,8 +93,6 @@ EXPLAIN = [[
 --- Plot a graph
 -- with either 1 or 2 curves, one of them can be loaded from disk
 function plot(title, prepP, prepare, prompt1, action1, prompt2, action2, reload)
-
-    return
 
     if prompt2 == nil or action2 == nil then
         plot1(title, prepP, prepare, prompt1, action1)
@@ -1390,7 +1388,8 @@ end
 -----------------------------------------------------------------------
 --
 -- 0.5.1
---
+-- test for existance of save dir before calculations start
+-- touch up of samples and readme
 --
 -- 0.5.0
 -- serialization and reading back of results to test across VMs

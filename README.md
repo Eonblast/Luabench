@@ -110,6 +110,20 @@ And this is what you get. You can try it yourself by running
 
 This shows two results in one graph. Note that these curves show time per table element.
 
+# Notes
+
+ This script has an awfully convoluted structure at this point, it
+ grew into what it is and it works. Obvious refactoring needs can be
+ addressed to make it a more pleasurable piece of code. Someday.
+
+ MAX_CYLES: the benchmarked action is often so fast it could not
+ be measured, as time can only be clocked in milliseconds. So the
+ action is repeated multiple times. MAX_CYCLES sets a maximum to the
+ repetition count, which can stay fixed or be allowed to automatic-
+ ally adjust itself down while x (number of elements in the source
+ data table) grows.
+
+
 # All Samples
 
 This is the result of these sample files, run one after the other:
@@ -121,6 +135,7 @@ This is the result of these sample files, run one after the other:
 	lua sample-4a.lua
 	lua sample-5.lua
 	lua sample-6.lua
+	lua sample-7.lua
 
 Simply call 'make' with no arguments to see them being produced.
 
@@ -499,7 +514,7 @@ Simply call 'make' with no arguments to see them being produced.
 
 
 ArithBench (PUC)
-================
+----------------
 
 **lua sample-6.lua**
 
@@ -666,7 +681,7 @@ This is a comparison between arithmetical operations: multiplication and divisio
 
 
 ArithBench (PUC)
-================
+----------------
 
 **lua sample-7.lua**
 
@@ -853,6 +868,21 @@ This shows the speed of multiplication.
 
 
 # History
+
+## 0.5.1
+* test for existance of save dir before calculations start
+* touch up of samples and readme
+*
+## 0.5.0
+* serialization and reading back of results to test across VMs
+* fixed missing x value for display as number when suppressed in graph
+* minor refactoring of table names in plot functions
+*
+## 0.4.2
+* replace M for ,000,000, m.m. k, to avoid right shift in x axis legend
+* fixing missing number formatting to single graph legend
+* adding title contents to first line, erasing Luabench version
+* extended version information in headlines
 
 ## 0.4.1
 * major speed up by allowing for recycling target tables

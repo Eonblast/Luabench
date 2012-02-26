@@ -5,7 +5,9 @@
 package.path="./?.lua"
 luabench=require("luabench")
 
-luabench.SHOW_ONE = false   -- setting false often increases resolution
+luabench.SHOW_ONE = false -- setting false often increases resolution
+luabench.SLICE    = 0.01  -- minimal time slice for cycles. Safe default: 0.2.
+luabench.BEST_OF  = 1     -- number of repeat runs, fastest used. Safe deflt: 3.
 
 luabench.plot(
 

@@ -1,4 +1,4 @@
-# luabench 0.4.1
+# luabench 0.5.1
 
 **This ASCII plotter draws a benchmark as a graph.**
 
@@ -870,14 +870,14 @@ This shows the speed of multiplication.
 # History
 
 ## 0.5.1
-* test for existance of save dir before calculations start
+* test for existence of save dir before calculations start
 * touch up of samples and readme
-*
+
 ## 0.5.0
 * serialization and reading back of results to test across VMs
 * fixed missing x value for display as number when suppressed in graph
 * minor refactoring of table names in plot functions
-*
+
 ## 0.4.2
 * replace M for ,000,000, m.m. k, to avoid right shift in x axis legend
 * fixing missing number formatting to single graph legend

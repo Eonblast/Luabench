@@ -2,13 +2,13 @@
 --- Package     : Luabench - ASCII plotter for Lua performance over i       ---
 --- File        : luabench.lua                                              ---
 --- Description : Main and only module file                                 ---
---- Version     : 0.5.0/ alpha                                              ---
+--- Version     : 0.5.1 / alpha                                             ---
 --- Requirement : Lua 5.1 or JIT 2 but may run anything lower than that     ---
 --- Copyright   : 2011 Henning Diedrich, Eonblast Corporation               ---
 --- Author      : H. Diedrich <hd2010@eonblast.com>                         ---
 --- License     : MIT see end of file                                       ---
 --- Created     : 08 Apr 2011                                               ---
---- Changed     : 15 Sep 2011                                               ---
+--- Changed     : 25 Feb 2012                                               ---
 -------------------------------------------------------------------------------
 ---                                                                         ---
 ---  ASCII plotted graph showing performance relative to element count.     ---
@@ -26,9 +26,9 @@ module("luabench", package.seeall)
 -- settings: defaults
 -----------------------------------------------------------------------
 
--- change these values in your main script, see samples
+-- override these values in your main script, see samples
 
-VERSION_TAG    = "Luabench 0.5.0" -- version number to appear at the top
+VERSION_TAG    = "Luabench 0.5.1" -- version number to appear at the top
 NAME1          = ""               -- name to + interval bracket right of plot
 NAME2          = ""               -- name to x interval bracket right of plot
 SYMBOL1        = '+'
@@ -39,10 +39,10 @@ X_AXIS         = '_'
 
 MAX_HEIGHT    = 30             -- max height of graph area in terminal lines
 WIDTH         = 50             -- width of graph are in terminal columns
-MAX_CYCLES    = 100000         -- max number of times the test functions run 
+MAX_CYCLES    = 100000         -- max number of times the test functions run* 
 MAX_ELEMENTS  = 1000           -- upper limit of number of elements (x)
 SLICE         = 0.2            -- minimal time slice for cycles. safe: 0.2
-BESTOF        = 3              -- number of repeat runs, fastest is used
+BEST_OF       = 3              -- number of repeat runs, fastest is used
 VERBOSITY     = 1              -- debugging: 0 = quiet, 1, 2 = verbose
 SHOW_ONE      = false          -- setting false often increases resolution
 SHOW_TWO      = true           -- setting false sometimes increases resolution
@@ -94,14 +94,18 @@ EXPLAIN = [[
 -- with either 1 or 2 curves, one of them can be loaded from disk
 function plot(title, prepP, prepare, prompt1, action1, prompt2, action2, reload)
 
+    return
+
     if prompt2 == nil or action2 == nil then
         plot1(title, prepP, prepare, prompt1, action1)
         -- switches to loading when allowed and possible (= data file exists)
+
     elseif reload == "load" then
         local search = prompt2
         local replace = action2
         plot2_load1(title, prepP, prepare, prompt1, action1, search, replace)
         -- switches to double loading when allowed and possible
+
     else
         plot2(title, prepP, prepare, prompt1, action1, prompt2, action2)
     end
@@ -136,7 +140,7 @@ function plotset(title, prompt, prepfunc, spans, prompt1, func1, prompt2, func2,
         print()
     
         luabench.MAX_ELEMENTS= spans[i] -- upper limit of number of elements (x)
-        luabench.MAX_CYCLES  = 10000000  -- max number of times the test functions run 
+        luabench.MAX_CYCLES  = 10000000 -- max number of times the test funcs run 
 	
         luabench.plot(title,
 
@@ -770,6 +774,14 @@ function file_exists(name)
     return false
 end
 
+function checkpath()
+    if SAVE and not file_exists(SAVE_PATH) then
+        print("SAVE is set but SAVE_PATH " .. SAVE_PATH .. " does not exist or is not writeable. Please create it and make it writeable. Quitting.")
+        os.exit()
+    end
+end
+
+
 -----------------------------------------------------------------------
 -- random contents creation
 -----------------------------------------------------------------------
@@ -913,7 +925,7 @@ local function measure(items, actionP, action)
     local disc = 0.01
     local dummy = 0
     
-    for k = start, BESTOF do
+    for k = start, BEST_OF do
 
         collectgarbage()
 
@@ -975,6 +987,8 @@ end
 -- failed. The main obstacle are the actually the plotrow subtleties.
 
 function plot1(title, prepP, prep, prompt1, action1)
+
+    checkpath()
 
     filename = make_filename{title,version(), "1-"..MAX_ELEMENTS}
     if ALLOW_LOAD and file_exists(SAVE_PATH .. filename) then
@@ -1093,6 +1107,8 @@ end
 
 function plot2(title, prepP, prep, prompt1, action1, prompt2, action2)
 
+    checkpath()
+
     plothead(title, version())
 
     margin()
@@ -1184,6 +1200,8 @@ function plot2(title, prepP, prep, prompt1, action1, prompt2, action2)
 end
 
 function plot2_load1(title, prepP, prep, prompt1, action1, search, replace)
+
+    checkpath()
 
     local savename1 = make_filename{title,version(),"1-"..MAX_ELEMENTS}
     local savename2 = savename1:gsub(search, replace) -- to be loaded
@@ -1354,12 +1372,27 @@ function plot2_load2(title, prepP, prep, prompt1, action1, search, replace)
     
 end
 
-
+-----------------------------------------------------------------------
+-- Notes
+-----------------------------------------------------------------------
+-- This script has an awfully convoluted structure at this point, it
+-- grew into what it is and it works. Obvious refactoring needs can be
+-- addressed to make it a more pleasurable piece of code. Someday.
+--
+-- *MAX_CYLES: the benchmarked action is often so fast it could not
+-- be measured, as time can only be clocked in milliseconds. So the
+-- action is repeated multiple times. MAX_CYCLES sets a maximum to the
+-- repetition count, which can stay fixed or be allowed to automatic-
+-- ally adjust itself down while x (number of elements in the source
+-- data table) grows.
 -----------------------------------------------------------------------
 -- History
 -----------------------------------------------------------------------
 --
--- 0.5
+-- 0.5.1
+--
+--
+-- 0.5.0
 -- serialization and reading back of results to test across VMs
 -- fixed missing x value for display as number when suppressed in graph
 -- minor refactoring of table names in plot functions
@@ -1407,7 +1440,7 @@ end
 -- TODO: single line plot function lags behind plot2()
 
 -----------------------------------------------------------------------
--- Luabench 0.5.0 License
+-- Luabench 0.5.1 License
 -----------------------------------------------------------------------
 -- 
 -- Copyright (c) 2011 Eonblast http://www.eonblast.com/luabench
